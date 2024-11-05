@@ -4,8 +4,7 @@ import lombok.Data;
 
 @Data
 public class UnReadChatVO {
+	private int chatNo;
 	private int roomNo;
-	private String roomName;
 	private int userNo;
-	private String roomImg;
 }

@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+  
+ <mapper namespace="kr.or.ddit.mapper.IChatMapper">
+
+	<select id="getmemberList" resultType="MemberVO">
+		select user_no, user_id, user_img, user_name, user_dep
+		from member
+	</select>
+	
+	<select id="getRoomMemberList" parameterType="int" resultType="MemberVO">
+		select user_no, user_id, user_img, user_name, user_dep
+		from member
+		where user_no = #{userNo}
+	</select>
+
+ 	<select id="getRoomList" parameterType="int" resultType="ChatRoomVO">
+		select r.room_no, r.room_name, r.room_img, r.room_date, r.room_ownerno, r.chat_date, r.chat_msg, r.roomPeople, COALESCE(u.unReadCount, 0) AS unReadCount
+		from (select r.room_no, r.room_name, r.room_img, r.room_date, r.room_ownerno, r.chat_date, r.chat_msg, p.roomPeople
+		        from (select r.room_no, r.room_name, r.room_img, r.room_date, r.room_ownerno, c.chat_date, c.chat_msg
+		                from (select r.room_no, room_name, room_img, room_date, room_ownerno
+		                      from chatroom c right outer join (select room_no from roommember where user_no = #{userNo}) r
+		                            on(c.room_no = r.room_no)) r
+		                     left outer join 
+		                    (SELECT room_no, chat_date, chat_msg
+		                     FROM chat c
+		                     WHERE (room_no, chat_date) IN (
+		                         SELECT room_no, MAX(chat_date) FROM chat
+		                         GROUP BY room_no)) c on(r.room_no = c.room_no)
+		                         order by r.room_date desc) r,
+		                (SELECT room_no, COUNT(*) AS roomPeople
+		                        FROM roommember
+		                        WHERE room_no IN (SELECT room_no FROM roommember WHERE user_no = #{userNo})
+		                        GROUP BY room_no) p
+		        where r.room_no = p.room_no) r 
+		        left outer join
+		        (SELECT room_no, COUNT(chat_no) AS unReadCount
+		            FROM unreadchat
+		            WHERE user_no = #{userNo}
+		            GROUP BY room_no) u on(r.room_no = u.room_no)
+		 order by chat_date desc
+ 	</select>
+ 	
+ 	<select id="getChatMessage" parameterType="int" resultType="ChatVO">
+		select c.chat_no, c.chat_date, c.chat_file, c.room_no, c.user_no, c.chat_msg, r.unreadcount
+		from chat c left outer join (select chat_no, COUNT(*) AS unreadcount
+		                                from unreadchat
+		                                where room_no = #{roomNo}
+		                                group by chat_no) r 
+		        on(c.chat_no = r.chat_no)
+		where room_no = #{roomNo}
+		order by chat_date asc
+ 	</select>
+ 
+ 	<select id="getMember" parameterType="int" resultType="MemberVO">
+ 		select * from member 
+		where user_no = #{userNo}
+ 	</select>
+ 	
+ 	<select id="checkOneToOneChatRoom" parameterType="map" resultType="int">
+	 	SELECT rm.room_no as room_no
+		FROM roommember rm
+		WHERE rm.room_no IN (
+		    SELECT room_no
+		    FROM roommember
+		    GROUP BY room_no
+		    HAVING COUNT(*) = 2
+		)
+		AND rm.user_no IN (#{myUser.userNo, jdbcType=INTEGER}, #{selectUser.userNo, jdbcType=INTEGER})
+		GROUP BY rm.room_no
+		HAVING COUNT(rm.user_no) = 2
+ 	</select>
+ 
+ 	<insert id="addOneToOneChatRoom" parameterType="map" useGeneratedKeys="true">
+ 		<selectKey keyProperty="roomNo" resultType="int" order="BEFORE">
+			select seq_chatroom.nextval from dual
+		</selectKey>
+		insert into chatroom (room_no, room_name, room_img, room_date, room_ownerno)
+		values (#{roomNo}, #{myUser.userName} || ', ' || #{selectUser.userName}, 'chatroom.png', sysdate, #{myUser.userNo})
+ 	</insert>
+ 	
+ 	<insert id="insertChatRoomFirstMsg" parameterType="map">
+ 		<selectKey keyProperty="chatNo" resultType="int" order="BEFORE">
+			select seq_chat.nextval from dual
+		</selectKey>
+		insert into chat(chat_no, chat_date, room_no, user_no, chat_msg)
+		values (#{chatNo}, sysdate, #{roomNo}, #{userNo}, #{chatMsg})
+ 	</insert>
+ 
+ 	<insert id="addRoomMemberOwner" parameterType="map">
+ 		insert into roommember(room_no, user_no, Auth_role)
+		values (#{roomNo}, #{myUserNo}, 'owner')
+ 	</insert>
+ 
+ 	<insert id="addRoomMemberNormal" parameterType="map">
+ 		insert into roommember(room_no, user_no, Auth_role)
+		values (#{roomNo}, #{selectUserNo}, 'normal')
+ 	</insert>
+ 
+ 	<select id="getChatRoomOne" parameterType="int" resultType="ChatRoomVO">
+		select distinct * 
+		from (select r.room_no, r.room_name, r.room_img, r.room_date, r.room_ownerno, r.chat_date, r.chat_msg, p.roomPeople
+		        from (select r.room_no, r.room_name, r.room_img, r.room_date, r.room_ownerno, c.chat_date, c.chat_msg
+		                from (select r.room_no, room_name, room_img, room_date, room_ownerno
+		                      from chatroom c right outer join (select room_no from roommember) r
+		                            on(c.room_no = r.room_no)) r
+		                     left outer join 
+		                    (SELECT room_no, chat_date, chat_msg
+		                     FROM chat c
+		                     WHERE (room_no, chat_date) IN (
+		                         SELECT room_no, MAX(chat_date) FROM chat
+		                         GROUP BY room_no)) c on(r.room_no = c.room_no)
+		                         order by r.room_date desc) r,
+		                (SELECT room_no, COUNT(*) AS roomPeople
+		                        FROM roommember
+		                        WHERE room_no IN (SELECT room_no FROM roommember)
+		                        GROUP BY room_no) p
+		        where r.room_no = p.room_no) rm
+		where rm.room_no = #{chatRoomNo}
+ 	</select>
+ 	
+ 	<select id="getUnreadCntByUser" parameterType="ChatVO" resultType="int">
+		select chat_no from unreadchat
+		where room_no = #{roomNo} 
+		and user_no = #{userNo}
+ 	</select>
+ 
+ 	<delete id="readMessageInRoom" parameterType="ChatVO">
+ 		delete from unreadchat
+		where room_no = #{roomNo} 
+		and user_no = #{userNo}
+ 	</delete>
+ 	
+ 	<insert id="insertMessage" parameterType="ChatVO" useGeneratedKeys="true">
+ 	 	<selectKey keyProperty="chatNo" resultType="int" order="BEFORE">
+			select seq_chat.nextval from dual
+		</selectKey>
+		insert into chat(chat_no, chat_date, room_no, user_no, chat_msg <if test="chatFile != null">, chat_file</if>)
+		values (#{chatNo}, sysdate, #{roomNo}, #{userNo}, #{chatMsg} <if test="chatFile != null">, #{chatFile}</if>)
+ 	</insert>
+ 
+ 	<insert id="insertUnreadMember" parameterType="map">
+	 	insert into unreadchat(chat_no, room_no, user_no)
+		values (#{chatNo}, #{roomNo}, #{userNo})
+ 	</insert>
+ 	
+ 	<select id="getMemberCount" parameterType="int" resultType="int">
+	 	select count(*) cnt from roommember
+		where room_no = #{roomNo}
+ 	</select>
+ 	
+ 	<select id="getRoomMember" parameterType="int" resultType="int">
+	 	select count(*)
+		from roommember
+		where room_no = #{roomNo}
+ 	</select>
+ 	
+ 	<delete id="deleteRoomMemberMe" parameterType="map">
+ 		delete from roommember
+		where room_no = #{roomNo} and user_no = #{userNo}
+ 	</delete>
+ 	
+ 	<delete id="deleteChatList" parameterType="int">
+	 	delete from chat
+		where room_no = #{roomNo}
+ 	</delete>
+ 	
+ 	<delete id="deleteChatRoom" parameterType="int">
+	 	delete from chatroom
+		where room_no = #{roomNo}
+ 	</delete>
+ 	
+ </mapper>

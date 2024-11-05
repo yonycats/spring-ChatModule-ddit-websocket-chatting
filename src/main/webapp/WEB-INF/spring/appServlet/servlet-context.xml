@@ -35,14 +35,5 @@
  
     <beans:bean id="myHandler" class="kr.or.ddit.chat.controller.WebSocketHandler"/>
     
-<!--     알람에 대한 웹 소켓 핸들러 -->
-<!--     <websocket:handlers> -->
-<!--         <websocket:mapping path="/websocket/alarm.do" handler="alarmHandler"></websocket:mapping> -->
-<!--         <websocket:handshake-interceptors> -->
-<!-- 	         <beans:bean class="org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor"/> -->
-<!-- 	    </websocket:handshake-interceptors> -->
-<!--     </websocket:handlers> -->
-<!--     <beans:bean id="alarmHandler" class="kr.or.ddit.websocket.AlarmHandler"/> -->
- 
 	
 </beans:beans>

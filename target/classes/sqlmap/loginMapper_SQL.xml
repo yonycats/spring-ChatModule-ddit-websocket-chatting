@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="kr.or.ddit.mapper.ILoginMapper">
+
+	<select id="loginCheck" parameterType="MemberVO" resultType="MemberVO">
+		select
+			user_no, user_id, user_img, user_name, user_pw
+		from member
+		where user_id = #{userId}
+		and user_pw = #{userPw}
+	</select>
+	
+</mapper>
